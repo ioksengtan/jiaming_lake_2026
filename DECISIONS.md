@@ -25,7 +25,7 @@
 - [x] 步驟 2 素材處理：`python scripts/process_photos.py`（保留名單在 `scripts/hold.txt`，待隊友同意）
 - [x] 步驟 3 路線與剖面資料：`python scripts/build_route.py` 產出 `data/route.json`（單程 10.2 km；路線 © OpenStreetMap 貢獻者，海拔 Copernicus DEM GLO-90）
 - [x] 步驟 4 版面原型：章節與段落內容在 `src/story.js`，虛線框是待寫／待補提醒；公開照片 19 張，保留 30 張
-- [ ] 步驟 5 互動地圖
+- [x] 步驟 5 互動地圖：每章開頭一張（MapLibre＋國土測繪中心〈臺灣通用電子地圖〉），標出當天路段、節點與目前位置；嘉明湖章是湖與三叉山的近景
 - [ ] 步驟 6 文字
 - [ ] 步驟 7 補入隊友素材、選圖
 - [ ] 步驟 8 收尾

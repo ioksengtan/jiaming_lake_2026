@@ -1,6 +1,7 @@
 import route from '../data/route.json'
 import photoList from '../data/photos.json'
 import { chapters } from './story.js'
+import { addMap, setMapPosition } from './map.js'
 
 const photos = Object.fromEntries(photoList.map((p) => [p.id, p]))
 const L = route.length_m
@@ -42,12 +43,40 @@ function photoFigure(id) {
   return fig
 }
 
+// 這一段路的距離與升降（沿行進方向）
+function legStats({ from, to }) {
+  const pts = route.points.filter((p) => p[3] >= Math.min(from, to) && p[3] <= Math.max(from, to)).map((p) => p[2])
+  if (from > to) pts.reverse()
+  let up = 0
+  let down = 0
+  for (let i = 1; i < pts.length; i++) {
+    const d = pts[i] - pts[i - 1]
+    if (d > 0) up += d
+    else down -= d
+  }
+  return { km: Math.abs(to - from) / 1000, up, down }
+}
+
+function mapFigure(cfg) {
+  const fig = el('figure', 'map')
+  const canvas = el('div', 'map-canvas')
+  let caption = `<strong>${cfg.label}</strong>`
+  if (!cfg.lake) {
+    const s = legStats(cfg)
+    caption += `<span>${s.km.toFixed(1)} 公里</span><span>上升約 ${fmt(s.up / 10) * 10} m</span><span>下降約 ${fmt(s.down / 10) * 10} m</span>`
+  }
+  fig.append(canvas, el('figcaption', '', caption))
+  addMap(canvas, cfg)
+  return fig
+}
+
 function renderStory() {
   const root = document.querySelector('#story')
   let index = 0
   for (const c of chapters) {
     const sec = el('section', c.lake ? 'chapter lake' : 'chapter')
     sec.append(el('header', 'chapter-head', `<p class="kicker">${c.kicker}</p><h2>${c.title}</h2>`))
+    if (c.map) sec.append(mapFigure(c.map))
     for (const s of c.steps) {
       const art = el('article', 'step')
       art.dataset.index = index++
@@ -124,6 +153,7 @@ function setupScroll({ y, H }) {
     dot.style.left = `${pct}%`
     dot.style.top = `${(y(e) / H) * 100}%`
     ele.textContent = `${fmt(e)} m`
+    setMapPosition(routeDist(t))
   }
 
   function setStep(i) {
@@ -172,6 +202,7 @@ function renderSources() {
     <h2>資料來源</h2>
     <ul>
       <li>步道路線、山頭與湖的輪廓：${route.sources.route}</li>
+      <li>地圖底圖：內政部國土測繪中心〈臺灣通用電子地圖〉</li>
       <li>海拔剖面：${route.sources.elevation}</li>
       <li>照片的時間與位置：拍攝時手機記錄的資料</li>
       <li>嘉明湖海拔 3,310 公尺：健行筆記〈戒茂斯上嘉明湖〉</li>

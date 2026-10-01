@@ -304,6 +304,71 @@ figure {
   color: var(--muted);
 }
 
+/* 章節地圖 */
+figure.map {
+  max-width: 1100px;
+  margin: 32px auto 0;
+  padding: 0 24px;
+  background: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.map-canvas {
+  height: 440px;
+  border-radius: 4px;
+  background: #cfdcc4;
+  font-family: var(--sans);
+}
+
+.map figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.map figcaption strong {
+  color: var(--ink);
+}
+
+.map-label {
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.9);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.map-label.main {
+  background: var(--lake);
+  color: #fff;
+}
+
+.map-here {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--lake);
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 1px var(--lake), 0 1px 6px rgb(0 0 0 / 0.4);
+}
+
+.lake .map figcaption {
+  color: #9fb0b8;
+}
+
+.lake .map figcaption strong {
+  color: #fff;
+}
+
 /* 高潮：嘉明湖 */
 .chapter.lake {
   margin-top: 40px;
@@ -425,6 +490,19 @@ figure {
   .photos {
     padding: 0;
     gap: 4px;
+  }
+
+  figure.map {
+    padding: 0;
+  }
+
+  .map-canvas {
+    height: 340px;
+    border-radius: 0;
+  }
+
+  .map figcaption {
+    padding: 0 16px;
   }
 
   figure {

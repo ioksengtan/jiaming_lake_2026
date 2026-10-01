@@ -2,11 +2,13 @@
 //   d     距登山口的公尺數（見 data/route.json 的 waypoints）
 //   leg   'out' 去程、'back' 回程
 //   photos 照片編號（data/photos.json 的 id 去掉拍攝者前綴，見 owner）
+// 章節的 map：from、to 是這一章走的路段（單程距離，回程 from 大於 to）；lake 是湖的近景
 //   text  內文段落；todo 是還沒寫或還缺素材的提醒，上線前要清空
 export const chapters = [
   {
     kicker: '第一天｜9 月 24 日',
     title: '從公路邊走進森林',
+    map: { from: 0, to: 3250, label: '戒茂斯登山口 → 新武呂溪營地' },
     steps: [
       {
         time: '2026-09-24 15:11', place: '戒茂斯登山口', d: 0, leg: 'out',
@@ -31,6 +33,7 @@ export const chapters = [
   {
     kicker: '第二天｜9 月 25 日',
     title: '過溪，然後一直往上',
+    map: { from: 3250, to: 8950, label: '新武呂溪營地 → 妹池營地' },
     steps: [
       {
         time: '2026-09-25 10:23', place: '新武呂溪渡溪點', d: 3270, leg: 'out',
@@ -67,6 +70,7 @@ export const chapters = [
   {
     kicker: '第三天｜9 月 26 日',
     title: '稜線上，湖出現了',
+    map: { from: 8950, to: 10243, label: '妹池營地 → 嘉明湖' },
     steps: [
       {
         time: '2026-09-26 10:15', place: '草原稜線', d: 9700, leg: 'out',
@@ -86,6 +90,7 @@ export const chapters = [
     lake: true,
     kicker: '海拔 3,310 公尺',
     title: '嘉明湖',
+    map: { from: 9900, to: 10243, lake: true, label: '嘉明湖與三叉山' },
     steps: [
       {
         time: '2026-09-26 13:10', place: '嘉明湖', d: 10243, leg: 'out',
@@ -107,6 +112,7 @@ export const chapters = [
   {
     kicker: '回程｜9 月 26 日下午至 27 日',
     title: '同一條路，倒著走',
+    map: { from: 10243, to: 0, label: '嘉明湖 → 戒茂斯登山口' },
     steps: [
       {
         time: '2026-09-26 14:15', place: '回到營地', d: 9373, leg: 'back',
