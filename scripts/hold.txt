@@ -1,0 +1,30 @@
+# 暫不公開的照片（可能認得出隊友的臉，等取得同意後再移除對應行）
+# 格式：<拍攝者資料夾>/<檔名不含副檔名>
+me/IMG_4341
+me/IMG_4343
+me/IMG_4344
+me/IMG_4345
+me/IMG_4346
+me/IMG_4347
+me/IMG_4349
+me/IMG_4353
+me/IMG_4354
+me/IMG_4355
+me/IMG_4356
+me/IMG_4357
+me/IMG_4358
+me/IMG_4359
+me/IMG_4360
+me/IMG_4362
+me/IMG_4363
+me/IMG_4364
+me/IMG_4365
+me/IMG_4366
+me/IMG_4367
+me/IMG_4369
+me/IMG_4370
+me/IMG_4371
+me/IMG_4372
+me/IMG_4379
+me/IMG_4348
+me/IMG_4374

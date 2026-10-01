@@ -17,6 +17,17 @@
 | 9 | 發佈 | GitHub Pages（GitHub Actions 自動部署） | 2026-09-30 |
 | 10 | 隱私 | repo 公開：`raw/` 不進 git；網頁用照片需清除 EXIF；隊友露臉需先取得同意 | 2026-09-30 |
 
+## 進度
+
+- [x] 步驟 1 專案骨架：Vite、GitHub Pages 自動部署，已上線 https://ioksengtan.github.io/jiaming_lake_2026/
+- [x] 步驟 2 素材處理：`python scripts/process_photos.py`（49 張中 21 張已輸出，28 張列在 `scripts/hold.txt` 待隊友同意）
+- [ ] 步驟 3 路線與剖面資料
+- [ ] 步驟 4 版面原型
+- [ ] 步驟 5 互動地圖
+- [ ] 步驟 6 文字
+- [ ] 步驟 7 補入隊友素材、選圖
+- [ ] 步驟 8 收尾
+
 ## 待辦
 
 - 補上隊友原始照片與軌跡檔（`raw/<名字>/`）
