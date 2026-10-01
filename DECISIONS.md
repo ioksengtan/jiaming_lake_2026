@@ -13,7 +13,7 @@
 | 5 | 日期 | 2026-09-24 至 09-27，四天三夜；9/26 約 13:10 抵達嘉明湖 | 2026-09-30 |
 | 6 | 互動程度 | L1 捲動敘事（海拔剖面列、照片、Live Photo、文字）＋互動路線地圖；不做 3D、不做湖色滑桿 | 2026-09-30 |
 | 7 | Live Photo | 第一版先只用靜態照片，不裝 ffmpeg；影片轉檔之後再補 | 2026-09-30 |
-| 8 | 技術選型 | Vite＋原生 JS、Scrollama、SVG 海拔剖面、MapLibre GL JS＋國土測繪中心底圖、Python 素材處理 | 2026-09-30 |
+| 8 | 技術選型 | Vite＋原生 JS、自寫捲動偵測（原訂 Scrollama，實測快速捲動會漏更新，10/01 改掉）、SVG 海拔剖面、MapLibre GL JS＋國土測繪中心底圖、Python 素材處理 | 2026-09-30 |
 | 9 | 發佈 | GitHub Pages（GitHub Actions 自動部署） | 2026-09-30 |
 | 10 | 隱私 | repo 公開：`raw/` 不進 git；網頁用照片需清除 EXIF；隊友露臉需先取得同意 | 2026-09-30 |
 | 11 | 營地 | 9/24 新武呂溪；9/25 妹池；9/26 新武呂溪（當天從妹池往返嘉明湖後下撤） | 2026-10-01 |
@@ -22,9 +22,9 @@
 ## 進度
 
 - [x] 步驟 1 專案骨架：Vite、GitHub Pages 自動部署，已上線 https://ioksengtan.github.io/jiaming_lake_2026/
-- [x] 步驟 2 素材處理：`python scripts/process_photos.py`（49 張中 21 張已輸出，28 張列在 `scripts/hold.txt` 待隊友同意）
+- [x] 步驟 2 素材處理：`python scripts/process_photos.py`（保留名單在 `scripts/hold.txt`，待隊友同意）
 - [x] 步驟 3 路線與剖面資料：`python scripts/build_route.py` 產出 `data/route.json`（單程 10.2 km；路線 © OpenStreetMap 貢獻者，海拔 Copernicus DEM GLO-90）
-- [ ] 步驟 4 版面原型
+- [x] 步驟 4 版面原型：章節與段落內容在 `src/story.js`，虛線框是待寫／待補提醒；公開照片 19 張，保留 30 張
 - [ ] 步驟 5 互動地圖
 - [ ] 步驟 6 文字
 - [ ] 步驟 7 補入隊友素材、選圖

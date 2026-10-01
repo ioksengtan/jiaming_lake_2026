@@ -4,14 +4,39 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>嘉明湖 2026｜戒茂斯線四天三夜</title>
+    <meta name="description" content="2026 年 9 月，從戒茂斯登山口走到海拔 3,310 公尺的嘉明湖，再原路走回來。" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <main>
-      <h1>嘉明湖 2026</h1>
-      <p>戒茂斯線原路來回．2026 年 9 月 24 日至 27 日</p>
-      <p class="note">製作中</p>
-    </main>
+    <nav id="profile" aria-label="目前位置">
+      <div class="now">
+        <strong id="now-place"></strong>
+        <span><span id="now-time"></span><span id="now-ele"></span></span>
+      </div>
+      <div id="profile-chart"></div>
+    </nav>
+
+    <header class="hero">
+      <img
+        src="/photos/me-IMG_4377-1600.webp"
+        srcset="/photos/me-IMG_4377-800.webp 800w, /photos/me-IMG_4377-1600.webp 1600w"
+        sizes="100vw"
+        alt="從草坡上俯瞰嘉明湖，藍天下湖水深藍"
+      />
+      <div class="hero-text">
+        <p class="kicker">戒茂斯線原路來回．2026 年 9 月 24 日至 27 日</p>
+        <h1>嘉明湖</h1>
+        <p class="lede">四天三夜，單程 10.2 公里，爬升 2,100 公尺。先往上，再下到溪谷，然後一路爬到湖邊。</p>
+      </div>
+    </header>
+
+    <main id="story"></main>
+
+    <footer id="sources"></footer>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
