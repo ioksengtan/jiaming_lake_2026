@@ -164,6 +164,10 @@ img {
   object-fit: cover;
 }
 
+picture {
+  display: contents;
+}
+
 .hero::after {
   content: "";
   position: absolute;
@@ -283,7 +287,7 @@ figure {
   margin: 0;
   overflow: hidden;
   border-radius: 4px;
-  background: var(--line);
+  background: var(--line) center / cover no-repeat;
 }
 
 .photos:not(.n1) img {

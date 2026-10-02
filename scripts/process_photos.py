@@ -1,12 +1,14 @@
-"""把 raw/<拍攝者>/ 的原始照片轉成網頁用的 WebP，並產出 data/photos.json。
+"""把 raw/<拍攝者>/ 的原始照片轉成網頁用的 AVIF 與 WebP，並產出 data/photos.json。
 
 用法（在專案根目錄）：python scripts/process_photos.py
-- 輸出的 WebP 不含 EXIF；時間與位置只寫進 data/photos.json
+- 輸出的圖檔不含 EXIF；時間與位置只寫進 data/photos.json
 - scripts/hold.txt 列出的照片只記錄資料，不輸出圖檔
 """
 import json
 import os
 import re
+import base64
+import io
 import struct
 import sys
 from datetime import datetime, timedelta, timezone
@@ -22,7 +24,9 @@ RAW = ROOT / 'raw'
 OUT = ROOT / 'public' / 'photos'
 DATA = ROOT / 'data' / 'photos.json'
 HOLD = ROOT / 'scripts' / 'hold.txt'
-WIDTHS = (800, 1600)
+WIDTHS = (480, 960, 1600)   # 直式照片不輸出 1600，版面上用不到那麼寬
+# 新瀏覽器拿 AVIF，不支援的退回 WebP
+FORMATS = (('avif', 'AVIF', {'quality': 45}), ('webp', 'WEBP', {'quality': 68, 'method': 6}))
 TAIPEI = timezone(timedelta(hours=8))
 
 
@@ -135,21 +139,33 @@ def main():
                 row['live'] = (owner_dir / f'{p.stem}.MOV').exists()
                 row['published'] = key not in hold
                 if row['published']:
-                    for w in WIDTHS:
-                        dst = OUT / f"{row['id']}-{w}.webp"
-                        if dst.exists():
-                            continue
+                    row['widths'] = [w for w in WIDTHS if w <= 960 or im.width > im.height]
+                    for w in row['widths']:
                         r = im.copy()
                         r.thumbnail((w, w * 4))
-                        r.save(dst, 'WEBP', quality=80, method=6)
+                        for ext, fmt, opts in FORMATS:
+                            dst = OUT / f"{row['id']}-{w}.{ext}"
+                            if not dst.exists():
+                                r.save(dst, fmt, **opts)
+                    # 極小的模糊預覽圖，直接寫進資料檔，照片下載完成前先顯示
+                    tiny = im.copy()
+                    tiny.thumbnail((24, 24))
+                    buf = io.BytesIO()
+                    tiny.save(buf, 'WEBP', quality=40)
+                    row['lqip'] = 'data:image/webp;base64,' + base64.b64encode(buf.getvalue()).decode()
                 rows.append(row)
             elif ext == '.MOV' and p.stem not in stills:
                 rows.append({'id': f'{owner}-{p.stem}', 'owner': owner, 'type': 'video',
                              'published': False, **video_meta(p)})
     rows.sort(key=lambda r: (r.get('time') or '', r['id']))
     DATA.write_text(json.dumps(rows, ensure_ascii=False, indent=1) + '\n', encoding='utf8')
-    pub = sum(r['published'] for r in rows)
-    print(f'{len(rows)} 筆資料，輸出 {pub} 張照片 x {len(WIDTHS)} 種尺寸到 {OUT.relative_to(ROOT)}')
+    keep = {f"{r['id']}-{w}.{ext}" for r in rows for w in r.get('widths', []) for ext, _, _ in FORMATS}
+    for f in OUT.iterdir():
+        if f.name not in keep:
+            f.unlink()
+    for ext, _, _ in FORMATS:
+        size = sum(f.stat().st_size for f in OUT.glob(f'*.{ext}')) / 1e6
+        print(f'{ext}: {len(list(OUT.glob(f"*.{ext}")))} files, {size:.1f} MB')
 
 
 if __name__ == '__main__':

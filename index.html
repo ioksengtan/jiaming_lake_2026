@@ -20,12 +20,20 @@
     </nav>
 
     <header class="hero">
-      <img
-        src="/photos/me-IMG_4377-1600.webp"
-        srcset="/photos/me-IMG_4377-800.webp 800w, /photos/me-IMG_4377-1600.webp 1600w"
-        sizes="100vw"
-        alt="從草坡上俯瞰嘉明湖，藍天下湖水深藍"
-      />
+      <picture>
+        <source
+          type="image/avif"
+          srcset="/photos/me-IMG_4377-480.avif 480w, /photos/me-IMG_4377-960.avif 960w, /photos/me-IMG_4377-1600.avif 1600w"
+          sizes="100vw"
+        />
+        <img
+          src="/photos/me-IMG_4377-960.webp"
+          srcset="/photos/me-IMG_4377-480.webp 480w, /photos/me-IMG_4377-960.webp 960w, /photos/me-IMG_4377-1600.webp 1600w"
+          sizes="100vw"
+          fetchpriority="high"
+          alt="從草坡上俯瞰嘉明湖，藍天下湖水深藍"
+        />
+      </picture>
       <div class="hero-text">
         <p class="kicker">戒茂斯線原路來回．2026 年 9 月 24 日至 27 日</p>
         <h1>嘉明湖</h1>

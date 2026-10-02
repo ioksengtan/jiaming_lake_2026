@@ -34,12 +34,27 @@ const el = (tag, cls, html) => {
   return e
 }
 
-function photoFigure(id) {
+// 每格照片在版面上的寬度，讓瀏覽器挑剛好夠用的檔案
+const SIZES = {
+  wide1: '(min-width: 1100px) 1052px, 100vw',
+  tall1: '(min-width: 608px) 560px, 100vw',
+  2: '(min-width: 1100px) 522px, 50vw',
+  3: '(min-width: 1100px) 345px, (min-width: 700px) 33vw, 50vw',
+}
+
+function photoFigure(id, count) {
   const p = photos[id]
   const base = `${import.meta.env.BASE_URL}photos/${id}`
-  const fig = el('figure', p.w > p.h ? 'wide' : 'tall')
-  fig.innerHTML = `<img src="${base}-800.webp" srcset="${base}-800.webp 800w, ${base}-1600.webp 1600w"
-    sizes="(min-width: 1100px) 1100px, 100vw" width="${p.w}" height="${p.h}" loading="lazy" alt="">`
+  const shape = p.w > p.h ? 'wide' : 'tall'
+  const fig = el('figure', shape)
+  fig.style.backgroundImage = `url(${p.lqip})`
+  const srcset = (ext) => p.widths.map((w) => `${base}-${w}.${ext} ${w}w`).join(', ')
+  const sizes = count === 1 ? SIZES[shape + 1] : SIZES[count === 3 ? 3 : 2]
+  fig.innerHTML = `<picture>
+    <source type="image/avif" srcset="${srcset('avif')}" sizes="${sizes}">
+    <img src="${base}-960.webp" srcset="${srcset('webp')}" sizes="${sizes}"
+      width="${p.w}" height="${p.h}" loading="lazy" decoding="async" alt="">
+  </picture>`
   return fig
 }
 
@@ -86,7 +101,7 @@ function renderStory() {
       )
       if (s.photos.length) {
         const g = el('div', `photos n${Math.min(s.photos.length, 4)}`)
-        s.photos.forEach((id) => g.append(photoFigure(id)))
+        s.photos.forEach((id) => g.append(photoFigure(id, s.photos.length)))
         art.append(g)
       }
       if (s.card) {
