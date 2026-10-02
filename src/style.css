@@ -35,6 +35,78 @@ img {
   height: auto;
 }
 
+/* 開場載入畫面 */
+#loader {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  background: var(--deep);
+  color: #e9eef0;
+  transition: opacity 0.6s, visibility 0.6s;
+  /* 程式沒跑起來時，12 秒後自動收起 */
+  animation: loader-out 0.6s 12s forwards;
+}
+
+#loader.done {
+  opacity: 0;
+  visibility: hidden;
+}
+
+#loader p {
+  margin: 0;
+}
+
+.loader-title {
+  font-family: var(--serif);
+  font-weight: 900;
+  font-size: clamp(48px, 12vw, 96px);
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+}
+
+.loader-text {
+  font-size: 14px;
+  letter-spacing: 0.3em;
+  color: #9fb0b8;
+}
+
+.loader-bar {
+  position: relative;
+  width: 160px;
+  height: 2px;
+  overflow: hidden;
+  background: #2a424e;
+}
+
+.loader-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: #8cc3d8;
+  animation: loader-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes loader-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@keyframes loader-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
 /* 頂部海拔剖面列 */
 #profile {
   position: fixed;
@@ -124,6 +196,20 @@ img {
   background: var(--lake);
   border: 2px solid var(--paper);
   box-shadow: 0 0 0 1px var(--lake);
+}
+
+#load-status {
+  position: absolute;
+  right: 20px;
+  top: 100%;
+  margin: 6px 0 0;
+  padding: 2px 10px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--ink) 80%, transparent);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
 }
 
 .mark {
@@ -288,6 +374,45 @@ figure {
   overflow: hidden;
   border-radius: 4px;
   background: var(--line) center / cover no-repeat;
+}
+
+.photos figure {
+  position: relative;
+}
+
+.photos img {
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.photos .loaded img {
+  opacity: 1;
+}
+
+/* 還沒載完的照片：模糊預覽上有一道光掃過 */
+.photos figure:not(.loaded)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.35) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photos figure:not(.loaded)::after,
+  .loader-bar::after {
+    animation: none;
+  }
 }
 
 .photos:not(.n1) img {

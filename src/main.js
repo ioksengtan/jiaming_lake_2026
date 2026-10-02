@@ -212,6 +212,52 @@ function setupScroll({ y, H }) {
   update()
 }
 
+// 延後載入的照片在開始下載前 complete 也是 true，所以要再看有沒有實際尺寸
+const isLoaded = (img) => img.complete && img.naturalWidth > 0
+
+// 開場大圖載完就收起載入畫面；最多等 8 秒，避免網路太慢時卡住
+function setupLoader() {
+  const loader = document.querySelector('#loader')
+  const hero = document.querySelector('.hero img')
+  const enter = () => {
+    loader.classList.add('done')
+    setTimeout(() => loader.remove(), 700)
+    preloadPhotos()
+  }
+  const ready = isLoaded(hero) ? Promise.resolve() : new Promise((r) => hero.addEventListener('load', r, { once: true }))
+  Promise.race([ready, new Promise((r) => setTimeout(r, 8000))]).then(enter)
+}
+
+// 進場後照閱讀順序在背景把照片先載好，並在頂部顯示進度
+function preloadPhotos() {
+  const imgs = [...document.querySelectorAll('#story img')]
+  const status = document.querySelector('#load-status')
+  let done = 0
+  let next = 0
+
+  const start = () => {
+    while (next < imgs.length && isLoaded(imgs[next])) next++
+    if (next < imgs.length) imgs[next++].loading = 'eager'
+  }
+  const finish = (img) => {
+    img.closest('figure').classList.add('loaded')
+    done++
+    status.textContent = `照片載入中 ${done}/${imgs.length}`
+    status.hidden = done === imgs.length
+    start()
+  }
+  for (const img of imgs) {
+    if (isLoaded(img)) finish(img)
+    else {
+      img.addEventListener('load', () => finish(img), { once: true })
+      img.addEventListener('error', () => finish(img), { once: true })
+    }
+  }
+  // 同時載兩張
+  start()
+  start()
+}
+
 function renderSources() {
   document.querySelector('#sources').innerHTML = `
     <h2>資料來源</h2>
@@ -227,3 +273,4 @@ function renderSources() {
 renderStory()
 renderSources()
 setupScroll(renderProfile())
+setupLoader()

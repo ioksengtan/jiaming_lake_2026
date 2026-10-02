@@ -11,12 +11,19 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
+    <div id="loader" role="status">
+      <p class="loader-title">嘉明湖</p>
+      <p class="loader-text">載入中</p>
+      <div class="loader-bar"></div>
+    </div>
+
     <nav id="profile" aria-label="目前位置">
       <div class="now">
         <strong id="now-place"></strong>
         <span><span id="now-time"></span><span id="now-ele"></span></span>
       </div>
       <div id="profile-chart"></div>
+      <p id="load-status" hidden></p>
     </nav>
 
     <header class="hero">
