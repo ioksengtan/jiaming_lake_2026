@@ -150,7 +150,9 @@ function commitSession(target, frac) {
   if (!session) return;
   const room = PROFILE.totalMin - session.routeAtStart;
   const gained = Math.min(session.choice * frac, Math.max(0, room));
-  const next = Math.min(PROFILE.totalMin, session.routeAtStart + gained);
+  let next = session.routeAtStart + gained;
+  if (PROFILE.totalMin - next < 0.05) next = PROFILE.totalMin;
+  next = Math.min(PROFILE.totalMin, next);
   const delta = Math.max(0, next - target.routeMin);
   target.routeMin = next;
   if (dayKey(Date.now()) !== target.todayKey) {
@@ -446,7 +448,7 @@ function renderChrome() {
   const time = $("time");
   time.hidden = state.hideClock;
   $("clock-toggle").textContent = state.hideClock ? "顯示時間" : "隱藏時間";
-  if (!session) time.textContent = clockText(state.choice * 60);
+  if (finished() || !session) time.textContent = finished() ? clockText(0) : clockText(state.choice * 60);
   else {
     const left = session.realDurationMs * (1 - Math.min(1, sessionElapsed(session) / session.realDurationMs));
     const shown = session.choice * 60 * (left / session.realDurationMs);
@@ -477,7 +479,7 @@ function renderChrome() {
     go.textContent = "開始專注";
   }
   const place = nextPlace(routeMin);
-  if (session?.state === "running") {
+  if (!finished() && session?.state === "running") {
     const leftMin = Math.max(1, Math.ceil(session.choice * (1 - sessionElapsed(session) / session.realDurationMs) - 1e-9));
     const where = place ? place.name : "戒茂斯登山口";
     document.title = `剩${zhCount(leftMin)}分｜往${where}`;
@@ -497,9 +499,21 @@ function clockText(totalSeconds) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+function sessionFrac(session, now = Date.now()) {
+  if (!session?.realDurationMs) return 0;
+  return Math.min(1, sessionElapsed(session, now) / session.realDurationMs);
+}
+
+function sessionReachedEnd(session, now = Date.now()) {
+  if (!session) return false;
+  const room = PROFILE.totalMin - session.routeAtStart;
+  return sessionElapsed(session, now) >= session.realDurationMs || session.choice * sessionFrac(session, now) >= room - 0.001;
+}
+
 function render() {
-  if (state.session?.state === "running" && sessionElapsed(state.session) >= state.session.realDurationMs) {
-    commitSession(state, 1);
+  const session = state.session;
+  if (session?.state === "running" && sessionReachedEnd(session)) {
+    commitSession(state, sessionFrac(session));
     persist();
   }
   renderChrome();
@@ -608,7 +622,6 @@ function bookView() {
   thumb.innerHTML = `<svg viewBox="0 0 120 80" aria-hidden="true">${thumbRidge()}</svg><span><strong>回到戒茂斯登山口</strong><span>${state.milestone ? "里程碑卡" : "尚未取得"}</span></span>`;
   thumb.disabled = !state.milestone;
   thumb.addEventListener("click", () => openSheet(cardView()));
-  const votes = voteRow();
   const row = document.createElement("div");
   row.className = "row";
   const close = document.createElement("button");
@@ -617,7 +630,10 @@ function bookView() {
   close.textContent = "關閉";
   close.addEventListener("click", closeSheet);
   row.append(close);
-  wrap.append(title, note, thumb, votes, row);
+  wrap.append(title, note, thumb);
+  const votes = voteRow();
+  if (votes) wrap.append(votes);
+  wrap.append(row);
   return wrap;
 }
 
@@ -636,6 +652,7 @@ function thumbRidge() {
 }
 
 function voteRow() {
+  if (!state.milestone) return null;
   const box = document.createElement("div");
   const label = document.createElement("p");
   label.textContent = "下一座想爬哪裡";
@@ -683,12 +700,17 @@ function cardView() {
   return wrap;
 }
 
+function fileStamp(ms) {
+  const p = taipei(ms);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${p.y}${pad(p.m)}${pad(p.d)}`;
+}
+
 function saveCanvas(canvas) {
   canvas.toBlob((blob) => {
     const link = document.createElement("a");
-    const stamp = formatDate(state.milestone.earnedAt).replace(/年|月/g, "").replace("日", "");
     link.href = URL.createObjectURL(blob);
-    link.download = `嘉明湖-${stamp}.png`;
+    link.download = `嘉明湖-${fileStamp(state.milestone.earnedAt)}.png`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   }, "image/png");
@@ -868,8 +890,8 @@ document.addEventListener("visibilitychange", () => {
     cancelAnimationFrame(raf);
     return;
   }
-  if (state.session?.state === "running" && sessionElapsed(state.session) >= state.session.realDurationMs + 15 * 60 * 1000) {
-    commitSession(state, 1);
+  if (state.session?.state === "running" && sessionReachedEnd(state.session)) {
+    commitSession(state, sessionFrac(state.session));
   }
   persist();
   loop();
