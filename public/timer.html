@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>嘉明湖</title>
+    <meta name="description" content="把工作專注走在戒茂斯線上，抵達嘉明湖後再走回登山口。" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="timer.css" />
+  </head>
+  <body>
+    <main id="app">
+      <header class="top">
+        <div>
+          <h1>嘉明湖</h1>
+          <p class="route-name">戒茂斯線</p>
+        </div>
+        <p id="today">今天累積 0 分鐘</p>
+      </header>
+
+      <p id="status">再十六次專注就到戒茂斯山前峰</p>
+
+      <div id="stage">
+        <svg id="scene" role="img" aria-label="戒茂斯線高度剖面"></svg>
+        <div class="clock">
+          <p id="time">25:00</p>
+          <button type="button" id="clock-toggle">隱藏時間</button>
+        </div>
+      </div>
+
+      <div class="lengths" role="group" aria-label="專注長度">
+        <button type="button" data-choice="15">15 分鐘</button>
+        <button type="button" data-choice="25" aria-pressed="true">25 分鐘</button>
+        <button type="button" data-choice="50">50 分鐘</button>
+      </div>
+
+      <div class="actions">
+        <button type="button" id="go" class="primary">開始專注</button>
+        <button type="button" id="interrupt">我被打斷了</button>
+      </div>
+
+      <div class="tools">
+        <button type="button" id="book">收集簿</button>
+        <button type="button" id="restart">重新開始全程</button>
+      </div>
+
+      <p class="hint">進度只存在這台裝置。請把網頁加到主畫面。清除瀏覽器資料後，進度與卡片會消失。</p>
+
+      <div id="shade" hidden>
+        <div id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></div>
+      </div>
+    </main>
+    <script src="timer-profile.js"></script>
+    <script src="timer.js"></script>
+  </body>
+</html>
