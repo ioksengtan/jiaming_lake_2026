@@ -267,7 +267,8 @@ function renderSources() {
       <li>海拔剖面：${route.sources.elevation}</li>
       <li>照片的時間與位置：拍攝時手機記錄的資料</li>
       <li>嘉明湖海拔 3,310 公尺：健行筆記〈戒茂斯上嘉明湖〉</li>
-    </ul>`
+    </ul>
+    <p class="aside"><a href="hut-time/">山屋時光：把一段專注走成這條路線</a></p>`
 }
 
 renderStory()
