@@ -1,0 +1,340 @@
+/* 山屋時光計時頁：溫暖淡水彩＋鉛筆線稿。手機 390×844 與電腦 1280×800 都一屏看完。 */
+:root {
+  --paper: #f4efe4;
+  --paper-2: #efe6d4;
+  --ink: #4a3d32;
+  --ink-soft: #7a6b58;
+  --orange: #e0873c;
+  --line: #c4b49a;
+  --card-sun: #f6e7c8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Noto Serif TC', 'Songti TC', serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+#hut-app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#ui {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: env(safe-area-inset-top) 14px 12px;
+  pointer-events: none;
+}
+
+#ui > * {
+  pointer-events: auto;
+}
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.brand .sub {
+  margin-left: 8px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  letter-spacing: 3px;
+}
+
+.ghost {
+  background: rgba(246, 241, 230, 0.72);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.status {
+  margin-top: 10px;
+  max-width: 560px;
+}
+
+.status .line,
+.status .hint {
+  text-shadow:
+    0 1px 0 rgba(244, 239, 228, 0.95),
+    0 0 8px rgba(244, 239, 228, 0.9);
+}
+.status .line {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.status .hint {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  min-height: 18px;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.countdown {
+  text-align: center;
+  font-size: 15px;
+  letter-spacing: 2px;
+  color: var(--ink-soft);
+  min-height: 20px;
+}
+
+.controls {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.lengths {
+  display: flex;
+  gap: 8px;
+}
+
+.lengths button {
+  background: rgba(246, 241, 230, 0.78);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.lengths button.on {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: #fff;
+}
+
+.primary {
+  width: 100%;
+  max-width: 320px;
+  background: var(--orange);
+  border: none;
+  color: #fff;
+  border-radius: 14px;
+  padding: 14px;
+  font-size: 18px;
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: 2px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 rgba(120, 80, 30, 0.25);
+}
+
+.primary.interrupt {
+  background: #8a7b63;
+  box-shadow: 0 3px 0 rgba(70, 55, 35, 0.25);
+}
+
+.cd-toggle {
+  font-size: 12px;
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.reminders {
+  margin: 2px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.reset {
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-family: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+/* 下一座想爬哪裡 */
+.next-peaks {
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+}
+.next-peaks p {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+.next-peaks .row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* 疊層：收集簿與單張卡 */
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: rgba(60, 48, 34, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.overlay[hidden] {
+  display: none;
+}
+
+.sheet {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  box-shadow: 0 8px 30px rgba(40, 30, 20, 0.35);
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.sheet-head h2 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 2px;
+}
+
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.slot {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--paper-2);
+  aspect-ratio: 4 / 5;
+  cursor: pointer;
+  position: relative;
+}
+
+.slot canvas,
+.slot .locked {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.slot .locked {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-soft);
+  font-size: 12px;
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+.book-note {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.card-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-stage canvas {
+  width: auto;
+  max-width: 100%;
+  max-height: 68vh;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(40, 30, 20, 0.3);
+}
+
+@media (min-width: 900px) {
+  #ui {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+  .brand h1 {
+    font-size: 26px;
+  }
+  .book-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>山屋時光｜嘉明湖</title>
+    <meta name="description" content="把一段專注時間，走成戒茂斯線上的一段路。走到營地收一張小卡，回到戒茂斯登山口得里程碑。" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/hut-time/style.css" />
+  </head>
+  <body>
+    <div id="hut-app">
+      <canvas id="scene" aria-hidden="true"></canvas>
+
+      <div id="ui">
+        <header class="topbar">
+          <div class="brand"><h1>山屋時光</h1><span class="sub">嘉明湖</span></div>
+          <button id="open-book" class="ghost" type="button">收集簿</button>
+        </header>
+
+        <div class="status" id="status">
+          <p class="line" id="status-line">準備從戒茂斯登山口出發。</p>
+          <p class="hint" id="status-hint"></p>
+        </div>
+
+        <div class="spacer"></div>
+
+        <div class="countdown" id="countdown" hidden></div>
+
+        <footer class="controls" id="controls">
+          <div class="lengths" id="lengths" role="group" aria-label="專注長度">
+            <button type="button" data-len="15">15 分鐘</button>
+            <button type="button" data-len="25" class="on">25 分鐘</button>
+            <button type="button" data-len="50">50 分鐘</button>
+          </div>
+          <button id="primary" class="primary" type="button">開始專注</button>
+          <label class="cd-toggle"><input type="checkbox" id="cd-toggle" checked /> 顯示數字倒數</label>
+          <p class="reminders">
+            請把網頁加到主畫面。<br />進度與卡片存在這台裝置，清除瀏覽器資料後會消失。
+          </p>
+          <button id="reset" class="reset" type="button">重新開始全程</button>
+        </footer>
+
+        <div class="next-peaks" id="next-peaks" hidden>
+          <p>走完了。下一座想爬哪裡？</p>
+          <div class="row">
+            <button class="ghost" type="button" data-peak="yushan">玉山主峰</button>
+            <button class="ghost" type="button" data-peak="xueshan">雪山主峰</button>
+            <button class="ghost" type="button" data-peak="hehuan">合歡山</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="book" class="overlay" hidden>
+        <div class="sheet">
+          <div class="sheet-head">
+            <h2>收集簿</h2>
+            <button class="ghost" type="button" data-close="book">關閉</button>
+          </div>
+          <div class="book-grid" id="book-grid"></div>
+          <p class="book-note">清除瀏覽器資料後，卡片會消失。</p>
+        </div>
+      </div>
+
+      <div id="card-view" class="overlay" hidden>
+        <div class="sheet">
+          <div class="sheet-head">
+            <h2 id="card-title">小卡</h2>
+            <button class="ghost" type="button" data-close="card-view">關閉</button>
+          </div>
+          <div class="card-stage">
+            <canvas id="card-canvas"></canvas>
+            <button class="ghost" id="save-png" type="button">存成 PNG</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/hut-time/app.js"></script>
+  </body>
+</html>
