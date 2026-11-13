@@ -1,11 +1,11 @@
 /* 山屋時光計時頁：溫暖淡水彩＋鉛筆線稿。手機 390×844 與電腦 1280×800 都一屏看完。 */
 :root {
-  --paper: #f3ead8;
-  --paper-2: #efe3c9;
-  --ink: #4b3f33;
+  --paper: #f4efe4;
+  --paper-2: #efe6d4;
+  --ink: #4a3d32;
   --ink-soft: #7a6b58;
-  --orange: #e08a3c;
-  --line: #b9a888;
+  --orange: #e0873c;
+  --line: #c4b49a;
   --card-sun: #f6e7c8;
 }
 
@@ -79,7 +79,7 @@ body {
 }
 
 .ghost {
-  background: rgba(255, 255, 255, 0.45);
+  background: rgba(246, 241, 230, 0.72);
   border: 1px solid var(--line);
   color: var(--ink);
   border-radius: 999px;
@@ -94,10 +94,15 @@ body {
   max-width: 560px;
 }
 
+.status .line,
+.status .hint {
+  text-shadow:
+    0 1px 0 rgba(244, 239, 228, 0.95),
+    0 0 8px rgba(244, 239, 228, 0.9);
+}
 .status .line {
   font-size: 15px;
   line-height: 1.5;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .status .hint {
@@ -135,7 +140,7 @@ body {
 }
 
 .lengths button {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(246, 241, 230, 0.78);
   border: 1px solid var(--line);
   color: var(--ink);
   border-radius: 999px;

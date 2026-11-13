@@ -184,90 +184,590 @@ function ridgeX(nx) {
   return sceneW * PAD + sceneW * (1 - 2 * PAD) * nx
 }
 function ridgeY(ny) {
-  const base = sceneH * 0.82
-  const top = sceneH * 0.34
+  // 只決定真實剖面在這一屏裡的上下位置，點與點的高低仍是軌跡海拔。
+  const base = sceneH * 0.8
+  const top = sceneH * 0.28
   return base - (base - top) * ny
+}
+function penScale() {
+  return Math.max(1, Math.min(sceneW, 780) / 390)
+}
+
+// 穩定的 0..1，畫面不隨每幀亂跳。
+function hash01(n) {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453
+  return x - Math.floor(x)
+}
+function puddle(ctx, x, y, rx, ry, color) {
+  const r = Math.max(rx, ry, 1)
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r)
+  g.addColorStop(0, color)
+  g.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = g
+  ctx.beginPath()
+  ctx.ellipse(x, y, Math.max(rx, 0.5), Math.max(ry, 0.5), 0, 0, Math.PI * 2)
+  ctx.fill()
+}
+
+let grainTile = null
+function getGrainTile() {
+  if (grainTile) return grainTile
+  grainTile = document.createElement('canvas')
+  grainTile.width = 128
+  grainTile.height = 128
+  const g = grainTile.getContext('2d')
+  const img = g.createImageData(128, 128)
+  let s = 20261113
+  const rnd = () => {
+    s = (s * 1664525 + 1013904223) >>> 0
+    return s / 4294967296
+  }
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = rnd()
+    const dark = n < 0.16
+    const light = n > 0.9
+    img.data[i] = light ? 255 : 70
+    img.data[i + 1] = light ? 248 : 58
+    img.data[i + 2] = light ? 230 : 42
+    img.data[i + 3] = dark ? 34 : light ? 26 : 0
+  }
+  g.putImageData(img, 0, 0)
+  return grainTile
+}
+function paintGrain(ctx, w, h) {
+  ctx.save()
+  ctx.globalAlpha = 0.55
+  ctx.fillStyle = ctx.createPattern(getGrainTile(), 'repeat')
+  ctx.fillRect(0, 0, w, h)
+  ctx.restore()
+}
+
+// 剖面點一律來自 routeData.profile（由 data/route.json 預先算出的戒茂斯線）。
+function mapProfile(xOf, yOf) {
+  return routeData.profile.map((p) => ({ x: xOf(p[0]), y: yOf(p[1]), nx: p[0], ny: p[1] }))
+}
+
+function strokePencilPath(ctx, pts, color, width, seed, yOffset = 0) {
+  if (pts.length < 2) return
+  ctx.save()
+  ctx.strokeStyle = color
+  ctx.lineWidth = width
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  for (let i = 0; i < pts.length - 1; i += 4) {
+    ctx.globalAlpha = 0.5 + hash01(seed + i) * 0.5
+    ctx.beginPath()
+    const start = Math.max(0, i - 1)
+    const end = Math.min(pts.length, i + 6)
+    for (let k = start; k < end; k++) {
+      const jx = (hash01(seed + k * 5.1) - 0.5) * 2.1
+      const jy = (hash01(seed + k * 9.3) - 0.5) * 2.1
+      const x = pts[k].x + jx
+      const y = pts[k].y + yOffset + jy
+      if (k === start) ctx.moveTo(x, y)
+      else ctx.lineTo(x, y)
+    }
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+// 把真實剖面畫成淡水彩山體加鉛筆稜線。不平滑、不另加山頭。
+function paintRidge(ctx, pts, fillBottom, pen) {
+  if (pts.length < 2) return
+  const left = pts[0].x
+  const right = pts[pts.length - 1].x
+  let top = pts[0].y
+  for (const p of pts) if (p.y < top) top = p.y
+
+  ctx.save()
+  ctx.beginPath()
+  ctx.moveTo(pts[0].x, pts[0].y)
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y)
+  ctx.lineTo(right, fillBottom)
+  ctx.lineTo(left, fillBottom)
+  ctx.closePath()
+  ctx.clip()
+
+  const wash = ctx.createLinearGradient(0, top, 0, fillBottom)
+  wash.addColorStop(0, 'rgba(168, 158, 136, 0.34)')
+  wash.addColorStop(0.28, 'rgba(138, 142, 104, 0.42)')
+  wash.addColorStop(0.62, 'rgba(126, 120, 94, 0.32)')
+  wash.addColorStop(1, 'rgba(164, 146, 114, 0.16)')
+  ctx.fillStyle = wash
+  ctx.fillRect(left - 8, top - 4, right - left + 16, fillBottom - top + 12)
+
+  for (let i = 0; i < pts.length; i += 7) {
+    const p = pts[i]
+    const elev = p.ny
+    const color =
+      elev > 0.78
+        ? 'rgba(128, 126, 114, 0.28)'
+        : elev > 0.45
+          ? 'rgba(126, 134, 96, 0.26)'
+          : 'rgba(168, 146, 104, 0.22)'
+    const below = 18 + (1 - elev) * 36
+    puddle(ctx, p.x, p.y + below * pen, (26 + hash01(i) * 22) * pen, (18 + hash01(i + 2) * 16) * pen, color)
+  }
+
+  // 沿同一條剖面下移的淡等高線，仍是這條稜線，不是第二座山。
+  ctx.lineCap = 'round'
+  for (const off of [16, 34, 58]) {
+    ctx.beginPath()
+    ctx.strokeStyle = `rgba(96, 84, 66, ${off < 20 ? 0.2 : 0.12})`
+    ctx.lineWidth = pen * 0.7
+    let drawing = false
+    for (let i = 0; i < pts.length; i++) {
+      const on = hash01(i * 2 + off) > 0.22
+      const x = pts[i].x
+      const y = pts[i].y + off * pen
+      if (!on) {
+        drawing = false
+        continue
+      }
+      if (!drawing) {
+        ctx.moveTo(x, y)
+        drawing = true
+      } else ctx.lineTo(x, y)
+    }
+    ctx.stroke()
+  }
+
+  ctx.lineCap = 'round'
+  for (let i = 0; i < pts.length; i += 2) {
+    const p = pts[i]
+    const nxt = pts[Math.min(pts.length - 1, i + 2)]
+    const slope = Math.abs((nxt.y - p.y) / ((nxt.x - p.x) || 1))
+    const marks = 1 + (slope > 0.85 ? 2 : slope > 0.4 ? 1 : 0)
+    for (let k = 0; k < marks; k++) {
+      const len = (8 + hash01(i * 5 + k) * (slope > 0.6 ? 22 : 12)) * pen
+      const x = p.x + (hash01(i + k * 7) - 0.5) * 7 * pen
+      const lean = (hash01(i + 11 + k) - 0.5) * 4 * pen
+      ctx.beginPath()
+      ctx.moveTo(x, p.y + 3 * pen)
+      ctx.lineTo(x + lean, p.y + 3 * pen + len)
+      ctx.strokeStyle = `rgba(72, 62, 48, ${0.22 + hash01(i + k) * 0.28})`
+      ctx.lineWidth = pen * (slope > 0.85 ? 0.9 : 0.65)
+      ctx.stroke()
+    }
+    if (slope > 0.7 && hash01(i + 19) > 0.55) {
+      ctx.beginPath()
+      ctx.moveTo(p.x - 4 * pen, p.y + 12 * pen)
+      ctx.quadraticCurveTo(p.x + 6 * pen, p.y + 16 * pen, p.x + 14 * pen, p.y + 10 * pen)
+      ctx.strokeStyle = 'rgba(68, 58, 46, 0.28)'
+      ctx.lineWidth = pen * 0.7
+      ctx.stroke()
+    }
+    if (p.ny < 0.48 && hash01(i + 21) > 0.42) {
+      ctx.beginPath()
+      ctx.moveTo(p.x, p.y + 15 * pen)
+      ctx.quadraticCurveTo(p.x + 3 * pen, p.y + 6 * pen, p.x - pen, p.y + 2 * pen)
+      ctx.strokeStyle = 'rgba(82, 96, 58, 0.38)'
+      ctx.lineWidth = pen * 0.7
+      ctx.stroke()
+    }
+  }
+
+  // 低處幾叢鉛筆灌木，長在這條坡上。
+  for (let i = 4; i < pts.length; i += 18) {
+    const p = pts[i]
+    if (p.ny > 0.42) continue
+    sketchShrub(ctx, p.x + (hash01(i) - 0.4) * 8, p.y + 8 * pen, (8 + hash01(i + 3) * 7) * pen, pen)
+  }
+  ctx.restore()
+
+  ctx.save()
+  ctx.strokeStyle = 'rgba(118, 122, 96, 0.16)'
+  ctx.lineWidth = pen * 7
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(pts[0].x, pts[0].y)
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y)
+  ctx.stroke()
+  ctx.restore()
+
+  strokePencilPath(ctx, pts, 'rgba(62, 52, 42, 0.88)', pen * 1.15, 2)
+  strokePencilPath(ctx, pts, 'rgba(112, 98, 80, 0.55)', pen * 0.65, 9, 0.6)
+
+  // 步道：貼著同一條剖面，往坡下偏一點，近處粗、遠處細。
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.beginPath()
+  for (let i = 0; i < pts.length; i++) {
+    const y = pts[i].y + (5 + (1 - pts[i].ny) * 3) * pen
+    if (i === 0) ctx.moveTo(pts[i].x, y)
+    else ctx.lineTo(pts[i].x, y)
+  }
+  ctx.strokeStyle = 'rgba(214, 198, 166, 0.55)'
+  ctx.lineWidth = pen * 2.6
+  ctx.stroke()
+  ctx.setLineDash([pen * 3.2, pen * 2.6])
+  ctx.strokeStyle = 'rgba(96, 78, 56, 0.4)'
+  ctx.lineWidth = pen * 0.75
+  ctx.stroke()
+  ctx.restore()
+}
+
+function sketchShrub(ctx, x, y, s, pen) {
+  puddle(ctx, x, y - s * 0.35, s * 0.9, s * 0.7, 'rgba(118, 128, 78, 0.28)')
+  ctx.save()
+  ctx.strokeStyle = 'rgba(68, 78, 48, 0.55)'
+  ctx.lineWidth = Math.max(0.6, pen * 0.65)
+  ctx.lineCap = 'round'
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    ctx.quadraticCurveTo(x + (i - 2) * s * 0.38, y - s * 0.95, x + (i - 2) * s * 0.55, y - s * 0.15)
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+function sketchTent(ctx, x, y, lit, scale) {
+  const s = scale
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.scale(s, s)
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.fillStyle = 'rgba(90, 74, 52, 0.18)'
+  ctx.beginPath()
+  ctx.ellipse(0, 1.2, 10, 2.4, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.moveTo(-9, 0)
+  ctx.bezierCurveTo(-9.2, -8, -4, -13.2, 0, -13.6)
+  ctx.bezierCurveTo(4.4, -13.2, 9.4, -8, 9, 0)
+  ctx.quadraticCurveTo(0, 1.4, -9, 0)
+  ctx.closePath()
+  ctx.fillStyle = lit ? 'rgba(236, 224, 196, 0.96)' : 'rgba(214, 204, 184, 0.72)'
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(72, 60, 46, 0.85)'
+  ctx.lineWidth = 1.05
+  ctx.stroke()
+  // 帳門與暖色內部，圓頂而不是三角。
+  ctx.beginPath()
+  ctx.moveTo(-2.4, 0)
+  ctx.quadraticCurveTo(-2.6, -6.2, 0.2, -7.4)
+  ctx.quadraticCurveTo(3, -6, 2.8, 0)
+  ctx.closePath()
+  ctx.fillStyle = lit ? 'rgba(196, 122, 64, 0.55)' : 'rgba(120, 100, 78, 0.28)'
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(72, 60, 46, 0.65)'
+  ctx.lineWidth = 0.7
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(-7, -5)
+  ctx.lineTo(-12.5, 0.4)
+  ctx.moveTo(7, -5)
+  ctx.lineTo(12.5, 0.4)
+  ctx.strokeStyle = 'rgba(72, 60, 46, 0.55)'
+  ctx.lineWidth = 0.7
+  ctx.stroke()
+  ctx.restore()
+}
+
+function sketchCairn(ctx, x, y, pen, lit) {
+  const stones = [
+    [0, -1.5, 5.2, 2.3],
+    [-0.4, -5, 3.6, 1.9],
+    [0.3, -7.6, 2.3, 1.4],
+  ]
+  ctx.save()
+  ctx.lineWidth = Math.max(0.7, pen * 0.7)
+  for (const [ox, oy, rx, ry] of stones) {
+    ctx.beginPath()
+    ctx.ellipse(x + ox * pen, y + oy * pen, rx * pen, ry * pen, 0, 0, Math.PI * 2)
+    ctx.fillStyle = lit ? 'rgba(196, 176, 142, 0.92)' : 'rgba(176, 166, 146, 0.75)'
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(72, 60, 46, 0.75)'
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+function sketchLake(ctx, x, y, pen) {
+  // 水面完全落在稜線下方，貼著終點那一段稍降的坡，不浮到天上。
+  ctx.save()
+  const cy = y + 10 * pen
+  ctx.beginPath()
+  ctx.ellipse(x - 8 * pen, cy, 10 * pen, 3 * pen, -0.15, 0, Math.PI * 2)
+  ctx.fillStyle = 'rgba(96, 146, 168, 0.62)'
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(58, 86, 102, 0.75)'
+  ctx.lineWidth = Math.max(0.7, pen * 0.7)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(x - 16 * pen, cy)
+  ctx.quadraticCurveTo(x - 8 * pen, cy - 2 * pen, x - pen, cy + pen)
+  ctx.strokeStyle = 'rgba(236, 244, 246, 0.7)'
+  ctx.lineWidth = Math.max(0.6, pen * 0.45)
+  ctx.stroke()
+  ctx.restore()
+}
+
+const INK = 'rgba(62, 50, 40, 0.92)'
+
+function pencilStroke(ctx) {
+  ctx.strokeStyle = INK
+  ctx.lineWidth = 1.15
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.stroke()
+}
+
+function drawPack(ctx, x, y, w, h) {
+  ctx.fillStyle = '#6e6246'
+  ctx.beginPath()
+  ctx.moveTo(x, y)
+  ctx.quadraticCurveTo(x - w * 0.15, y - h * 0.15, x - w * 0.05, y - h)
+  ctx.quadraticCurveTo(x + w * 0.55, y - h * 1.08, x + w * 0.96, y - h * 0.78)
+  ctx.quadraticCurveTo(x + w * 1.05, y - h * 0.4, x + w * 0.88, y - h * 0.06)
+  ctx.quadraticCurveTo(x + w * 0.4, y + h * 0.06, x, y)
+  ctx.closePath()
+  ctx.fill()
+  pencilStroke(ctx)
+  ctx.fillStyle = '#57492f'
+  ctx.beginPath()
+  ctx.moveTo(x + w * 0.12, y - h * 0.62)
+  ctx.lineTo(x + w * 0.78, y - h * 0.7)
+  ctx.lineTo(x + w * 0.74, y - h * 0.38)
+  ctx.lineTo(x + w * 0.14, y - h * 0.32)
+  ctx.closePath()
+  ctx.fill()
+  pencilStroke(ctx)
+  ctx.beginPath()
+  ctx.moveTo(x + w * 0.48, y - h * 0.92)
+  ctx.lineTo(x + w * 0.42, y - h * 0.12)
+  ctx.strokeStyle = 'rgba(62, 50, 40, 0.7)'
+  ctx.lineWidth = 1
+  ctx.stroke()
+}
+
+function drawStanding(ctx, stepping) {
+  const lift = stepping ? -2.2 : 0
+  const foot = stepping ? 2.6 : 0
+
+  ctx.fillStyle = '#6a645c'
+  ctx.beginPath()
+  ctx.moveTo(-3.2, -26)
+  ctx.lineTo(-5.2, -8)
+  ctx.lineTo(-0.6, -8)
+  ctx.lineTo(-0.4, -26)
+  ctx.closePath()
+  ctx.fill()
+  pencilStroke(ctx)
+  ctx.beginPath()
+  ctx.moveTo(2.2, -26)
+  ctx.lineTo(3.2 + foot, -8 + lift)
+  ctx.lineTo(7.6 + foot, -8 + lift)
+  ctx.lineTo(6.2, -26)
+  ctx.closePath()
+  ctx.fill()
+  pencilStroke(ctx)
+  ctx.fillStyle = '#5b4634'
+  ctx.beginPath()
+  ctx.ellipse(-3, -5.2, 3.5, 2.15, 0, 0, Math.PI * 2)
+  ctx.fill()
+  pencilStroke(ctx)
+  ctx.beginPath()
+  ctx.ellipse(5.2 + foot, -5.2 + lift, 3.5, 2.15, 0, 0, Math.PI * 2)
+  ctx.fill()
+  pencilStroke(ctx)
+
+  ctx.fillStyle = '#e0873c'
+  ctx.beginPath()
+  ctx.moveTo(-5.5, -48)
+  ctx.quadraticCurveTo(-7.2, -36, -6.2, -26)
+  ctx.lineTo(8, -25)
+  ctx.quadraticCurveTo(9.4, -36, 7, -49)
+  ctx.quadraticCurveTo(0.5, -45, -5.5, -48)
+  ctx.closePath()
+  ctx.fill()
+  pencilStroke(ctx)
+  ctx.beginPath()
+  ctx.moveTo(5.5, -44)
+  ctx.quadraticCurveTo(11, -36, 9.2, -27)
+  ctx.lineTo(6.4, -26.5)
+  ctx.quadraticCurveTo(7.2, -35, 4, -42)
+  ctx.fillStyle = '#d9783a'
+  ctx.fill()
+  pencilStroke(ctx)
+
+  // 大背包畫在外套外面，往身後突出，才不會被身體蓋住。
+  drawPack(ctx, -16, -24, 14, 26)
+  ctx.beginPath()
+  ctx.moveTo(-6, -46)
+  ctx.quadraticCurveTo(-2, -40, -1, -28)
+  ctx.strokeStyle = 'rgba(90, 62, 36, 0.75)'
+  ctx.lineWidth = 1.2
+  ctx.stroke()
+
+  ctx.fillStyle = '#f2d7be'
+  ctx.beginPath()
+  ctx.arc(1.4, -54.5, 4.3, 0, Math.PI * 2)
+  ctx.fill()
+  pencilStroke(ctx)
+  ctx.fillStyle = INK
+  ctx.beginPath()
+  ctx.arc(2.45, -54.2, 0.95, 0, Math.PI * 2)
+  ctx.arc(4.15, -54.2, 0.95, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#c9a15c'
+  ctx.beginPath()
+  ctx.arc(1.1, -57.4, 4.5, Math.PI * 1.04, Math.PI * 1.98)
+  ctx.closePath()
+  ctx.fill()
+  pencilStroke(ctx)
+  ctx.beginPath()
+  ctx.ellipse(1.1, -56.2, 7.6, 1.9, -0.04, 0, Math.PI * 2)
+  ctx.fill()
+  pencilStroke(ctx)
+}
+
+function drawSitting(ctx) {
+  ctx.fillStyle = 'rgba(176, 162, 136, 0.92)'
+  ctx.beginPath()
+  ctx.ellipse(0, 2.4, 8, 2.5, -0.05, 0, Math.PI * 2)
+  ctx.fill()
+  pencilStroke(ctx)
+
+  // 屈膝：大腿往前、小腿向下，靴子落在坡上。
+  ctx.fillStyle = '#6a645c'
+  ctx.beginPath()
+  ctx.moveTo(-1, -8)
+  ctx.quadraticCurveTo(6, -6, 11, -1)
+  ctx.lineTo(12.5, 7)
+  ctx.lineTo(8.5, 7.5)
+  ctx.lineTo(8, 1)
+  ctx.quadraticCurveTo(4, -2, 0, -4)
+  ctx.closePath()
+  ctx.fill()
+  pencilStroke(ctx)
+  ctx.beginPath()
+  ctx.moveTo(1, -6)
+  ctx.quadraticCurveTo(5, -2, 7, 2)
+  ctx.lineTo(5.2, 2.4)
+  ctx.quadraticCurveTo(4, -1, 1.5, -4)
+  ctx.fillStyle = '#5e584f'
+  ctx.fill()
+  pencilStroke(ctx)
+  ctx.fillStyle = '#5b4634'
+  ctx.beginPath()
+  ctx.ellipse(11.2, 8.2, 3.6, 2, 0.3, 0, Math.PI * 2)
+  ctx.fill()
+  pencilStroke(ctx)
+
+  ctx.fillStyle = '#e0873c'
+  ctx.beginPath()
+  ctx.moveTo(-4.5, -30)
+  ctx.quadraticCurveTo(-6, -18, -4, -8)
+  ctx.lineTo(6.5, -7)
+  ctx.quadraticCurveTo(7.5, -18, 5.2, -31)
+  ctx.quadraticCurveTo(0, -27, -4.5, -30)
+  ctx.closePath()
+  ctx.fill()
+  pencilStroke(ctx)
+  ctx.beginPath()
+  ctx.moveTo(4, -20)
+  ctx.quadraticCurveTo(9, -14, 10, -6)
+  ctx.lineTo(7, -5.5)
+  ctx.quadraticCurveTo(6.5, -12, 3, -16)
+  ctx.fillStyle = '#d9783a'
+  ctx.fill()
+  pencilStroke(ctx)
+
+  drawPack(ctx, -14, -10, 12, 20)
+
+  ctx.fillStyle = '#f2d7be'
+  ctx.beginPath()
+  ctx.arc(1.2, -36, 4.2, 0, Math.PI * 2)
+  ctx.fill()
+  pencilStroke(ctx)
+  ctx.fillStyle = INK
+  ctx.beginPath()
+  ctx.arc(2.2, -35.7, 0.9, 0, Math.PI * 2)
+  ctx.arc(3.85, -35.7, 0.9, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#c9a15c'
+  ctx.beginPath()
+  ctx.arc(0.8, -38.8, 4.4, Math.PI * 1.04, Math.PI * 1.98)
+  ctx.closePath()
+  ctx.fill()
+  pencilStroke(ctx)
+  ctx.beginPath()
+  ctx.ellipse(0.8, -37.6, 7.4, 1.85, -0.06, 0, Math.PI * 2)
+  ctx.fill()
+  pencilStroke(ctx)
+}
+
+function drawHiker(ctx, x, y, pose, facing, stepping, k) {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.scale(facing * k, k)
+  if (pose === 'sit') drawSitting(ctx)
+  else drawStanding(ctx, stepping)
+  ctx.restore()
 }
 
 function drawScene(t) {
   const w = sceneW
   const h = sceneH
+  const pen = penScale()
   sctx.clearRect(0, 0, w, h)
-  // 溫暖淡水彩天空（固定，不跟電腦當下時間連動）
-  const g = sctx.createLinearGradient(0, 0, 0, h)
-  g.addColorStop(0, '#dbe7ec')
-  g.addColorStop(0.55, '#f0e7d2')
-  g.addColorStop(1, '#ead9b8')
-  sctx.fillStyle = g
+  sctx.fillStyle = '#f4efe4'
   sctx.fillRect(0, 0, w, h)
 
-  // 極慢的雲
-  if (!prefersReduced) {
-    const drift = (t * 0.004) % (w + 200)
-    cloud(w - drift + 0, h * 0.16, 70)
-    cloud(w - ((drift + w * 0.6) % (w + 200)) + 0, h * 0.1, 50)
-  } else {
-    cloud(w * 0.7, h * 0.14, 64)
+  // 天空是手繪淡彩，不跟電腦當時的時間連動。雲極慢地漂。
+  const drift = prefersReduced ? 0 : (t * 0.0028) % (w + 280)
+  const clouds = [
+    [0.22, 0.2, 118, 46, '168, 196, 216'],
+    [0.48, 0.12, 96, 40, '214, 186, 156'],
+    [0.08, 0.1, 74, 32, '186, 206, 220'],
+    [0.66, 0.16, 88, 34, '176, 198, 214'],
+    [0.38, 0.26, 70, 26, '226, 206, 176'],
+  ]
+  for (const [fx, fy, rx, ry, rgb] of clouds) {
+    let x = fx * w - drift
+    x = ((x % (w + 280)) + (w + 280)) % (w + 280) - 80
+    puddle(sctx, x, fy * h, rx * pen, ry * pen, `rgba(${rgb}, 0.30)`)
+    puddle(sctx, x + rx * 0.45 * pen, fy * h + 6, rx * 0.62 * pen, ry * 0.7 * pen, `rgba(${rgb}, 0.16)`)
   }
 
-  // 剖面：鉛筆稜線＋淡水彩山體
-  const prof = routeData.profile
-  sctx.beginPath()
-  sctx.moveTo(ridgeX(0), ridgeY(prof[0][1]))
-  for (const p of prof) sctx.lineTo(ridgeX(p[0]), ridgeY(p[1]))
-  sctx.lineTo(ridgeX(1), h)
-  sctx.lineTo(ridgeX(0), h)
-  sctx.closePath()
-  const mg = sctx.createLinearGradient(0, ridgeY(1), 0, h)
-  mg.addColorStop(0, 'rgba(150,163,138,0.55)')
-  mg.addColorStop(1, 'rgba(120,135,110,0.7)')
-  sctx.fillStyle = mg
-  sctx.fill()
-  // 稜線
-  sctx.beginPath()
-  sctx.moveTo(ridgeX(prof[0][0]), ridgeY(prof[0][1]))
-  for (const p of prof) sctx.lineTo(ridgeX(p[0]), ridgeY(p[1]))
-  sctx.strokeStyle = 'rgba(75,63,51,0.75)'
-  sctx.lineWidth = 1.6
-  sctx.stroke()
+  const pts = mapProfile(ridgeX, ridgeY)
+  paintRidge(sctx, pts, h + 30, pen)
 
   const walked = currentWalked()
-  const visited = (key) => {
-    const n = nodeByKey(key)
-    return walked >= n.minF - 0.5
-  }
+  const visited = (key) => walked >= nodeByKey(key).minF - 0.5
 
-  // 嘉明湖小水面（經過後亮起）
-  if (walked >= FORWARD_TOTAL - 0.5) {
-    const lx = ridgeX(1)
-    const ly = ridgeY(yForX(1))
-    sctx.fillStyle = 'rgba(70,120,160,0.75)'
-    sctx.beginPath()
-    sctx.ellipse(lx, ly + 6, 16, 5, 0, 0, Math.PI * 2)
-    sctx.fill()
-  }
+  const fp = nodeByKey('frontpeak')
+  sketchCairn(sctx, ridgeX(fp.x), ridgeY(yForX(fp.x)), pen, visited('frontpeak'))
 
-  // 營地記號
   for (const n of routeData.nodes) {
     if (!n.camp) continue
-    const cx = ridgeX(n.x)
-    const cy = ridgeY(yForX(n.x))
-    const lit = visited(n.key)
-    tentMark(cx, cy, lit)
+    sketchTent(sctx, ridgeX(n.x), ridgeY(yForX(n.x)), visited(n.key), pen)
   }
-  // 前峰小地景（不發卡）
-  const fp = nodeByKey('frontpeak')
-  sctx.fillStyle = 'rgba(75,63,51,0.5)'
-  sctx.fillRect(ridgeX(fp.x) - 1, ridgeY(yForX(fp.x)) - 7, 2, 7)
+  if (walked >= FORWARD_TOTAL - 0.5) {
+    sketchLake(sctx, ridgeX(1), ridgeY(yForX(1)), pen)
+  }
 
-  // 小登山者
+  paintGrain(sctx, w, h)
+
   let hx
   let hy
+  let pose = 'stand'
+  let facing = 1
   if (state.interrupted) {
+    pose = 'sit'
     const st = interruptState(walked)
+    facing = positionAt(walked).leg === 'return' ? -1 : 1
     if (st.type === 'camp') {
-      hx = ridgeX(st.node.x)
-      hy = ridgeY(yForX(st.node.x))
+      const seat = seatBesideCamp(st.node)
+      hx = ridgeX(seat.xn)
+      hy = ridgeY(seat.ny)
+      facing = seat.px > 0 ? -1 : 1
     } else {
       const p = positionAt(walked)
       hx = ridgeX(p.x)
@@ -275,77 +775,34 @@ function drawScene(t) {
     }
   } else {
     const p = positionAt(walked)
+    facing = p.leg === 'return' ? -1 : 1
     hx = ridgeX(p.x)
     hy = ridgeY(yForX(p.x))
   }
-  // 每十幾秒輕踏一步
   let bob = 0
+  let stepping = false
   if (!prefersReduced && state.session) {
     const ph = (t % 12000) / 12000
-    bob = ph < 0.08 ? -Math.sin((ph / 0.08) * Math.PI) * 3 : 0
+    stepping = ph < 0.08
+    bob = stepping ? -Math.sin((ph / 0.08) * Math.PI) * 2.2 : 0
   }
-  drawHiker(hx, hy + bob)
+  const k = (Math.min(h, 900) / 844) * 1.32
+  drawHiker(sctx, hx, hy + bob, pose, facing, stepping, k)
 }
 
-function cloud(x, y, r) {
-  sctx.fillStyle = 'rgba(255,255,255,0.55)'
-  sctx.beginPath()
-  sctx.ellipse(x, y, r, r * 0.45, 0, 0, Math.PI * 2)
-  sctx.ellipse(x + r * 0.6, y + 4, r * 0.7, r * 0.38, 0, 0, Math.PI * 2)
-  sctx.ellipse(x - r * 0.6, y + 5, r * 0.6, r * 0.33, 0, 0, Math.PI * 2)
-  sctx.fill()
-}
-function tentMark(x, y, lit) {
-  sctx.beginPath()
-  sctx.moveTo(x, y - 11)
-  sctx.lineTo(x + 8, y)
-  sctx.lineTo(x - 8, y)
-  sctx.closePath()
-  sctx.fillStyle = lit ? 'rgba(224,138,60,0.92)' : 'rgba(120,108,90,0.4)'
-  sctx.fill()
-  sctx.strokeStyle = 'rgba(75,63,51,0.7)'
-  sctx.lineWidth = 1.2
-  sctx.stroke()
-}
-function drawHiker(x, y) {
-  sctx.save()
-  sctx.translate(x, y)
-  // 大背包
-  sctx.fillStyle = '#9a6b3e'
-  sctx.beginPath()
-  sctx.roundRect(-11, -24, 8, 16, 3)
-  sctx.fill()
-  // 暖橘外套（身體）
-  sctx.fillStyle = '#e08a3c'
-  sctx.beginPath()
-  sctx.roundRect(-6, -24, 11, 17, 4)
-  sctx.fill()
-  // 腿
-  sctx.strokeStyle = '#4b3f33'
-  sctx.lineWidth = 2.4
-  sctx.beginPath()
-  sctx.moveTo(-3, -8)
-  sctx.lineTo(-3, -1)
-  sctx.moveTo(2, -8)
-  sctx.lineTo(2, -1)
-  sctx.stroke()
-  // 圓帽與頭
-  sctx.fillStyle = '#f2e3c8'
-  sctx.beginPath()
-  sctx.arc(0, -29, 5, 0, Math.PI * 2)
-  sctx.fill()
-  sctx.fillStyle = '#c56b2c'
-  sctx.beginPath()
-  sctx.arc(0, -31, 5.4, Math.PI, Math.PI * 2)
-  sctx.fill()
-  sctx.fillRect(-6.5, -31.5, 13, 2)
-  // 兩個小點當臉
-  sctx.fillStyle = '#4b3f33'
-  sctx.beginPath()
-  sctx.arc(-1.6, -29, 0.8, 0, Math.PI * 2)
-  sctx.arc(1.6, -29, 0.8, 0, Math.PI * 2)
-  sctx.fill()
-  sctx.restore()
+// 坐到營地旁邊時，挑稜線高度最接近營地的那一側，避免坐到旁邊的凸起上。
+function seatBesideCamp(node) {
+  const usable = sceneW * (1 - 2 * PAD)
+  const campNy = yForX(node.x)
+  let best = null
+  for (const px of [18, 22, 26, -18, -22, -26]) {
+    const xn = node.x + px / usable
+    if (xn <= 0.02 || xn >= 0.98) continue
+    const ny = yForX(xn)
+    const score = Math.abs(ny - campNy)
+    if (!best || score < best.score) best = { xn, ny, px, score }
+  }
+  return best || { xn: node.x, ny: campNy, px: 18 }
 }
 
 // ---------- 文字狀態 ----------
@@ -521,8 +978,11 @@ function refreshBook() {
       div.appendChild(c)
       div.addEventListener('click', () => openCard(spec))
     } else {
-      const label = slot.kind === 'milestone' ? '里程碑' : '營地小卡'
-      div.innerHTML = `<div class="locked">${label}<br>尚未取得</div>`
+      const c = document.createElement('canvas')
+      c.width = 320
+      c.height = 400
+      drawLockedSilhouette(c.getContext('2d'), slot)
+      div.appendChild(c)
     }
     grid.appendChild(div)
   }
@@ -550,13 +1010,25 @@ function drawCard(ctx, W, H, spec) {
   const soft = night ? 'rgba(240,234,216,0.7)' : 'rgba(75,63,51,0.65)'
   const g = ctx.createLinearGradient(0, 0, 0, H)
   g.addColorStop(0, sky.top)
-  g.addColorStop(1, sky.bot)
+  g.addColorStop(night ? 1 : 0.5, sky.bot)
+  if (!night) {
+    g.addColorStop(0.72, '#f4efe4')
+    g.addColorStop(1, '#f7f2e8')
+  }
   ctx.fillStyle = g
   ctx.fillRect(0, 0, W, H)
-  // 紙框
+  if (!night) {
+    puddle(ctx, W * 0.28, H * 0.2, W * 0.26, H * 0.07, 'rgba(150, 182, 206, 0.28)')
+    puddle(ctx, W * 0.72, H * 0.16, W * 0.2, H * 0.055, 'rgba(226, 196, 158, 0.24)')
+  }
+  paintGrain(ctx, W, H)
+  // 鉛筆紙框，兩筆稍微錯開
   ctx.strokeStyle = soft
-  ctx.lineWidth = W * 0.012
-  ctx.strokeRect(W * 0.04, H * 0.035, W * 0.92, H * 0.93)
+  ctx.lineWidth = Math.max(1, W * 0.008)
+  ctx.strokeRect(W * 0.045, H * 0.038, W * 0.91, H * 0.924)
+  ctx.globalAlpha = 0.45
+  ctx.strokeRect(W * 0.052, H * 0.044, W * 0.896, H * 0.912)
+  ctx.globalAlpha = 1
 
   const cx = W / 2
   const serif = "'Noto Serif TC', serif"
@@ -568,11 +1040,11 @@ function drawCard(ctx, W, H, spec) {
   ctx.fillStyle = soft
   ctx.fillText('嘉明湖', cx, H * 0.185)
 
-  // 手繪
+  // 手繪。里程碑是整段真實剖面；營地是帳篷手繪，遠稜仍用同一條剖面。
   if (spec.kind === 'milestone') {
     drawProfileSilhouette(ctx, W, H, ink)
   } else {
-    drawNodeGlyph(ctx, W, H, spec.node, ink)
+    drawNodeGlyph(ctx, W, H, spec.node, ink, night)
   }
 
   const lines = []
@@ -623,57 +1095,231 @@ function drawCard(ctx, W, H, spec) {
   ctx.font = `500 ${W * 0.038}px ${serif}`
   ctx.fillText(`累積專注 ${state.focusCount} 次`, cx, H * 0.945)
 }
-function drawNodeGlyph(ctx, W, H, node, ink) {
-  const cx = W / 2
-  const cy = H * 0.37
-  ctx.strokeStyle = ink
-  ctx.lineWidth = W * 0.01
-  // 小山與帳篷
-  ctx.beginPath()
-  ctx.moveTo(cx - W * 0.22, cy + H * 0.06)
-  ctx.lineTo(cx - W * 0.05, cy - H * 0.05)
-  ctx.lineTo(cx + W * 0.1, cy + H * 0.06)
-  ctx.stroke()
-  ctx.beginPath()
-  ctx.moveTo(cx + W * 0.04, cy + H * 0.06)
-  ctx.lineTo(cx + W * 0.16, cy - H * 0.04)
-  ctx.lineTo(cx + W * 0.26, cy + H * 0.06)
-  ctx.closePath()
-  ctx.fillStyle = 'rgba(224,138,60,0.85)'
-  ctx.fill()
-  ctx.stroke()
-  if (node.key === 'xinwulu') {
-    // 渡溪的水波
-    ctx.strokeStyle = 'rgba(70,120,160,0.8)'
-    ctx.beginPath()
-    for (let i = 0; i < 3; i++) {
-      const yy = cy + H * 0.08 + i * H * 0.016
-      ctx.moveTo(cx - W * 0.2, yy)
-      ctx.quadraticCurveTo(cx - W * 0.1, yy - 6, cx, yy)
-      ctx.quadraticCurveTo(cx + W * 0.1, yy + 6, cx + W * 0.2, yy)
-    }
-    ctx.stroke()
-  }
-}
-function drawProfileSilhouette(ctx, W, H, ink) {
-  const prof = routeData.profile
+function drawNodeGlyph(ctx, W, H, node, ink, night) {
   const x0 = W * 0.1
   const x1 = W * 0.9
-  const base = H * 0.45
-  const top = H * 0.27
+  const base = H * 0.4
+  const top = H * 0.25
+  const pts = mapProfile(
+    (nx) => x0 + (x1 - x0) * nx,
+    (ny) => base - (base - top) * ny,
+  )
+  const pen = Math.max(0.75, W / 640)
+  paintRidge(ctx, pts, H * 0.5, pen)
+  const at = pts.reduce((best, p) => (Math.abs(p.nx - node.x) < Math.abs(best.nx - node.x) ? p : best), pts[0])
+  sketchTent(ctx, at.x, at.y, true, pen * 0.85)
+  drawCampForeground(ctx, W, H, node, ink, night)
+}
+function drawCampForeground(ctx, W, H, node, ink, night) {
+  const gy = H * 0.545
+  const left = W * 0.1
+  const right = W * 0.9
+  const grass = ctx.createLinearGradient(0, gy - H * 0.08, 0, gy + H * 0.03)
+  grass.addColorStop(0, 'rgba(168, 170, 120, 0)')
+  grass.addColorStop(0.45, night ? 'rgba(90, 96, 78, 0.35)' : 'rgba(154, 156, 104, 0.38)')
+  grass.addColorStop(1, 'rgba(120, 112, 80, 0.08)')
+  ctx.fillStyle = grass
+  ctx.fillRect(left, gy - H * 0.09, right - left, H * 0.12)
+
+  ctx.save()
+  ctx.lineCap = 'round'
+  for (let i = 0; i < 42; i++) {
+    const x = left + ((right - left) * (i + hash01(i + 3) * 0.6)) / 42
+    const hh = H * (0.012 + hash01(i * 7) * 0.02)
+    ctx.beginPath()
+    ctx.moveTo(x, gy)
+    ctx.quadraticCurveTo(x + (hash01(i) * 8 - 4), gy - hh, x + (hash01(i + 1) * 10 - 5), gy - hh * 0.25)
+    ctx.strokeStyle = night ? `rgba(230, 224, 206, ${0.25 + hash01(i) * 0.25})` : `rgba(70, 82, 48, ${0.32 + hash01(i) * 0.3})`
+    ctx.lineWidth = Math.max(0.7, W * 0.0016)
+    ctx.stroke()
+  }
+  ctx.restore()
+
+  if (node.key === 'xinwulu') {
+    // 這座是渡溪點，草地上加一小彎水。
+    ctx.save()
+    ctx.beginPath()
+    ctx.ellipse(W * 0.2, gy - H * 0.01, W * 0.07, H * 0.012, -0.3, 0, Math.PI * 2)
+    ctx.fillStyle = 'rgba(130, 166, 182, 0.4)'
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(70, 104, 122, 0.55)'
+    ctx.lineWidth = Math.max(0.7, W * 0.002)
+    ctx.stroke()
+    ctx.restore()
+  }
+  if (node.key === 'meichi') {
+    ctx.save()
+    ctx.fillStyle = night ? 'rgba(180, 176, 160, 0.45)' : 'rgba(168, 156, 136, 0.85)'
+    ctx.strokeStyle = ink
+    ctx.lineWidth = Math.max(0.7, W * 0.002)
+    for (const [fx, fw] of [
+      [0.72, 0.035],
+      [0.78, 0.028],
+      [0.68, 0.022],
+    ]) {
+      ctx.beginPath()
+      ctx.ellipse(W * fx, gy - H * 0.008, W * fw, H * 0.01, 0.2, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
+    }
+    ctx.restore()
+  }
+
+  const flowerCount = node.key === 'football' ? 10 : node.key === 'meichi' ? 4 : 6
+  const colors = ['#c9b4d4', '#f7f4ee', '#e4d08a', '#d7c2b0']
+  for (let i = 0; i < flowerCount; i++) {
+    const x = left + (right - left) * (0.08 + hash01(i + 40) * 0.84)
+    if (x > W * 0.28 && x < W * 0.62) continue
+    const stem = H * (0.02 + hash01(i + 8) * 0.018)
+    ctx.beginPath()
+    ctx.moveTo(x, gy)
+    ctx.quadraticCurveTo(x + 3, gy - stem * 0.6, x - 1, gy - stem)
+    ctx.strokeStyle = night ? 'rgba(220, 216, 200, 0.55)' : 'rgba(70, 90, 52, 0.65)'
+    ctx.lineWidth = Math.max(0.6, W * 0.0015)
+    ctx.stroke()
+    ctx.fillStyle = colors[i % colors.length]
+    ctx.beginPath()
+    ctx.arc(x - 1, gy - stem, Math.max(2.2, W * 0.008), 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(80, 68, 54, 0.35)'
+    ctx.stroke()
+  }
+
+  drawBigTent(ctx, W * 0.36, gy, W, H, night)
+  drawBigPack(ctx, W * 0.55, gy, W, H)
+  drawPoles(ctx, W * 0.64, gy, W, H, ink)
+}
+function drawBigTent(ctx, x, y, W, H, night) {
+  const dw = W * 0.2
+  const dh = H * 0.115
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.fillStyle = 'rgba(90, 70, 48, 0.15)'
   ctx.beginPath()
-  ctx.moveTo(x0, base)
-  for (const p of prof) ctx.lineTo(x0 + (x1 - x0) * p[0], base - (base - top) * p[1])
-  ctx.lineTo(x1, base)
-  ctx.closePath()
-  ctx.fillStyle = 'rgba(120,135,110,0.75)'
+  ctx.ellipse(0, 2, dw * 0.55, dh * 0.08, 0, 0, Math.PI * 2)
   ctx.fill()
-  ctx.strokeStyle = ink
-  ctx.lineWidth = W * 0.006
   ctx.beginPath()
-  ctx.moveTo(x0, base - (base - top) * prof[0][1])
-  for (const p of prof) ctx.lineTo(x0 + (x1 - x0) * p[0], base - (base - top) * p[1])
+  ctx.moveTo(-dw * 0.5, 0)
+  ctx.bezierCurveTo(-dw * 0.52, -dh * 0.72, -dw * 0.2, -dh, 0, -dh * 1.02)
+  ctx.bezierCurveTo(dw * 0.22, -dh, dw * 0.52, -dh * 0.7, dw * 0.5, 0)
+  ctx.quadraticCurveTo(0, dh * 0.08, -dw * 0.5, 0)
+  ctx.closePath()
+  ctx.fillStyle = night ? 'rgba(214, 206, 188, 0.88)' : 'rgba(240, 232, 210, 0.95)'
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(62, 50, 40, 0.88)'
+  ctx.lineWidth = Math.max(1, W * 0.003)
   ctx.stroke()
+  // 打開的帳門，看得到暖色內部
+  ctx.beginPath()
+  ctx.moveTo(-dw * 0.08, 0)
+  ctx.quadraticCurveTo(-dw * 0.1, -dh * 0.55, dw * 0.02, -dh * 0.62)
+  ctx.quadraticCurveTo(dw * 0.16, -dh * 0.48, dw * 0.14, 0)
+  ctx.closePath()
+  ctx.fillStyle = 'rgba(214, 140, 72, 0.72)'
+  ctx.fill()
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(dw * 0.14, 0)
+  ctx.quadraticCurveTo(dw * 0.28, -dh * 0.35, dw * 0.22, -dh * 0.08)
+  ctx.strokeStyle = 'rgba(62, 50, 40, 0.7)'
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(-dw * 0.36, -dh * 0.35)
+  ctx.lineTo(-dw * 0.62, 1)
+  ctx.moveTo(dw * 0.36, -dh * 0.35)
+  ctx.lineTo(dw * 0.62, 1)
+  ctx.lineWidth = Math.max(0.7, W * 0.002)
+  ctx.stroke()
+  ctx.restore()
+}
+function drawBigPack(ctx, x, y, W, H) {
+  const w = W * 0.09
+  const h = H * 0.078
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.fillStyle = '#b08958'
+  ctx.beginPath()
+  ctx.moveTo(-w * 0.45, -h * 0.15)
+  ctx.quadraticCurveTo(-w * 0.7, -h * 0.75, -w * 0.2, -h)
+  ctx.quadraticCurveTo(w * 0.35, -h * 1.05, w * 0.45, -h * 0.45)
+  ctx.lineTo(w * 0.4, -h * 0.05)
+  ctx.quadraticCurveTo(0, h * 0.08, -w * 0.45, -h * 0.15)
+  ctx.closePath()
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(62, 50, 40, 0.88)'
+  ctx.lineWidth = Math.max(1, W * 0.0026)
+  ctx.lineJoin = 'round'
+  ctx.stroke()
+  ctx.fillStyle = '#8d6a3e'
+  ctx.beginPath()
+  ctx.moveTo(-w * 0.3, -h * 0.72)
+  ctx.quadraticCurveTo(0, -h * 0.85, w * 0.28, -h * 0.62)
+  ctx.lineTo(w * 0.22, -h * 0.42)
+  ctx.lineTo(-w * 0.28, -h * 0.48)
+  ctx.closePath()
+  ctx.fill()
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(-w * 0.1, -h * 0.95)
+  ctx.lineTo(-w * 0.15, -h * 0.2)
+  ctx.stroke()
+  ctx.restore()
+}
+function drawPoles(ctx, x, y, W, H, ink) {
+  ctx.save()
+  ctx.strokeStyle = ink
+  ctx.lineWidth = Math.max(1, W * 0.003)
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(x - W * 0.03, y)
+  ctx.lineTo(x + W * 0.05, y - H * 0.07)
+  ctx.moveTo(x, y)
+  ctx.lineTo(x + W * 0.07, y - H * 0.055)
+  ctx.stroke()
+  ctx.restore()
+}
+function drawProfileSilhouette(ctx, W, H, ink) {
+  const x0 = W * 0.1
+  const x1 = W * 0.9
+  const base = H * 0.5
+  const top = H * 0.25
+  const pts = mapProfile(
+    (nx) => x0 + (x1 - x0) * nx,
+    (ny) => base - (base - top) * ny,
+  )
+  const pen = Math.max(0.8, W / 560)
+  paintRidge(ctx, pts, base + H * 0.02, pen)
+  const last = pts[pts.length - 1]
+  sketchLake(ctx, last.x, last.y, pen)
+  // 終點那一筆用傳入的墨色再描一次，夜裡才看得清楚，形狀仍是剖面。
+  ctx.save()
+  ctx.strokeStyle = ink
+  ctx.globalAlpha = 0.35
+  ctx.lineWidth = Math.max(0.8, W * 0.004)
+  ctx.lineJoin = 'round'
+  ctx.beginPath()
+  ctx.moveTo(pts[0].x, pts[0].y)
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y)
+  ctx.stroke()
+  ctx.restore()
+}
+function drawLockedSilhouette(ctx, slot) {
+  const W = 320
+  const H = 400
+  ctx.fillStyle = '#e5ddd0'
+  ctx.fillRect(0, 0, W, H)
+  ctx.save()
+  ctx.filter = 'grayscale(1) contrast(0.9)'
+  ctx.globalAlpha = 0.5
+  if (slot.kind === 'milestone') drawProfileSilhouette(ctx, W, H, '#5c5348')
+  else drawNodeGlyph(ctx, W, H, nodeByKey(slot.key), '#5c5348', false)
+  ctx.restore()
+  ctx.fillStyle = 'rgba(90, 78, 64, 0.8)'
+  ctx.font = "500 15px 'Noto Serif TC', serif"
+  ctx.textAlign = 'center'
+  ctx.fillText(slot.kind === 'milestone' ? '里程碑' : '營地小卡', W / 2, H * 0.9)
+  ctx.font = "500 13px 'Noto Serif TC', serif"
+  ctx.fillText('尚未取得', W / 2, H * 0.945)
 }
 function wrapText(ctx, text, x, y, maxW, lh) {
   const chars = [...text]
@@ -705,7 +1351,7 @@ function init() {
   requestAnimationFrame(frame)
 }
 if (document.fonts && document.fonts.ready) {
-  document.fonts.ready.then(() => {})
+  document.fonts.ready.then(() => refreshBook())
 }
 init()
 
